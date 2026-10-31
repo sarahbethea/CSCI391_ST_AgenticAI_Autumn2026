@@ -10,7 +10,7 @@ from tavily import TavilyClient
 
 MAX_STEPS = 20
 WINDOW_SIZE = 4
-TIERING_ENABLED = True
+TIERING_ENABLED = False
 SYSTEM_PROMPT = """
     You are a helpful stock research agent.
 
@@ -21,10 +21,12 @@ SYSTEM_PROMPT = """
     After observing a tool result, decide what to do next.
     Stop when you have enough information to provide a final answer.
 
-    For stock comparisons, obtain a snapshot for each requested ticker. Use the calculator tool to compute each momentum_score using the specified formula. Once the comparison is complete, call final_answer. Do not finish with an ordinary text response. Do not invent missing snapshot data or calculator results. 
+    For stock comparisons, obtain a snapshot for each requested ticker. Calculate momentum_score as day_change_pct * (volume / 1000000). Use calculator for each score, using values from get_stock_snapshot. The ticker with the highest score wins. News provides context but does not change the score.
+    
+    Once the comparison is complete, call final_answer. Do not finish with an ordinary text response. Do not invent missing snapshot data or calculator results. 
     """
 
-PERSISTENT_CONSTRAINTS = """
+PERSISTENT_CONSTRAINTS =  """
     REMINDER — these constraints apply on every step, not just the first:
     1. Never state a ticker's price or day-change unless it came from a
     get_stock_snapshot() observation in this conversation.
@@ -195,6 +197,10 @@ def build_windowed_context(all_steps, rolling_summary):
 
     rolling_summary["content"] = ("Earlier observations:\n" + "\n".join(summary_lines))
 
+    print("\nROLLING SUMMARY:")
+    print(rolling_summary["content"])
+    print(f"Summary length: {len(rolling_summary['content'])} characters")
+
 
     # TODO 6: Return [system_prompt, rolling_summary_message] + steps_to_keep.
     return [{"role": "system", "content": SYSTEM_PROMPT}, rolling_summary] + steps_to_keep
@@ -253,6 +259,9 @@ def main(args):
     prefix = "OPENROUTER" if mode == "online" else "LOCAL_LLM"
     cheap_model = os.getenv(f"{prefix}_MODEL_CHEAP")
     expensive_model = os.getenv(f"{prefix}_MODEL_EXPENSIVE")
+
+    # # TEMPORARY: deliberately mismatch the .env pin
+    # cheap_model = "intentional-drift-test"
 
     check_model_drift(mode, "cheap", cheap_model)
     check_model_drift(mode, "expensive", expensive_model)
@@ -431,12 +440,23 @@ def main(args):
 
         # TODO 7: Extract the model's message and any requested tool calls.
         response_data = response.json()
+
+
+        print("FULL LOOP RESPONSE:")
+        print(json.dumps(response_data, indent=2))
+
+
         if "choices" not in response_data:
             print("OpenRouter returned an error:")
             print(response_data)
             return
         
         total_tokens += response_data["usage"]["total_tokens"]
+
+        if response_data["choices"][0]["finish_reason"] == "error":
+            print("Model generation failed:")
+            print(json.dumps(response_data, indent=2))
+            return
 
         message = response_data["choices"][0]["message"]
         tool_calls = message.get("tool_calls") or []
@@ -475,7 +495,14 @@ def main(args):
 
             response_data = response.json()
             total_tokens += response_data["usage"]["total_tokens"]
+
+            if response_data["choices"][0]["finish_reason"] == "error":
+                print("Model generation failed:")
+                print(json.dumps(response_data, indent=2))
+                return
+
             message = response_data["choices"][0]["message"]
+
             tool_calls = message.get("tool_calls") or []
             if not tool_calls:
                 print("Expensive model returned no tool calls. should have called final_answer")
