@@ -8,6 +8,7 @@ Copy chat() and model_for() from your Lab 3 agent and your router from Lab 4.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 
 import llm
 import router
+import tracer
 
 load_dotenv()
 
@@ -46,9 +48,11 @@ UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 RADIO_MODES = ("easy", "medium", "hard")
 MAX_VERIFY = 25          # MBIDs per verify_recordings call (one MusicBrainz search)
 
-# Recording MBIDs confirmed by verify_recordings this session. Playlist writes check it.
+# Recordings confirmed this session (by verify_recordings or search_recordings), keyed by MBID:
+#   {"f5971e52-...": {"recording_mbid": ..., "title": ..., "artist": ..., "length_s": ...}}
+# Playlist writes check membership; approval summaries use the titles and lengths.
 # TODO: move into hot state (Part 5.1) once that store exists.
-VERIFIED_MBIDS: set[str] = set()
+VERIFIED_RECORDINGS: dict[str, dict] = {}
 
 
 @dataclass
@@ -141,15 +145,75 @@ def injected_failure(url: str) -> Optional[int]:
         return 503      # MusicBrainz: Service Unavailable
 
 
+# ---------------------------------------------------------------- MusicBrainz read cache (Part 0)
+
+# Not agent memory: the model never sees it. It only avoids asking MusicBrainz the same question
+# twice (politeness: ~1 request/second per IP, shared by the whole class on campus).
+# Turned on for real runs in __main__; off by default so unit tests see every request they expect.
+CACHE_ENABLED = False
+CACHE_DIR = Path(__file__).parent / ".cache" / "musicbrainz"     # .cache/ is in .gitignore
+CACHE_MAX_AGE_S = 7 * 24 * 3600                                   # MusicBrainz data is nearly static; refresh weekly
+
+
+def is_cacheable(method: str, url: str) -> bool:
+    """Only MusicBrainz reads: catalog facts that don't change.
+
+    Never ListenBrainz: listens, feedback, and playlists change all the time. A stale find_playlists
+    would even break create_playlist's duplicate check. Never writes: a write is an action, not a lookup.
+    """
+    if not CACHE_ENABLED:
+        return False
+    if method != "GET":
+        return False
+    if url.startswith(MB_API):
+        return True
+    else:
+        return False
+
+
+def _cache_file(url: str, params) -> Path:
+    """The same question (URL + parameters) always maps to the same file name."""
+    key = url + "?" + json.dumps(params or {}, sort_keys=True)
+    return CACHE_DIR / (hashlib.sha256(key.encode("utf-8")).hexdigest() + ".json")
+
+
+def cache_get(url: str, params):
+    """The cached response body, or None if there is no fresh copy."""
+    path = _cache_file(url, params)
+    if not path.exists():
+        return None
+    age_s = time.time() - path.stat().st_mtime
+    if age_s > CACHE_MAX_AGE_S:
+        return None                              # too old: fetch it again
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None                              # a damaged cache file: just fetch it again
+
+
+def cache_put(url: str, params, response_body) -> None:
+    """Save a successful response for next time."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _cache_file(url, params).write_text(json.dumps(response_body), encoding="utf-8")
+
+
 def http(method: str, url: str, *, params=None, body=None, auth=False, timeout=READ_TIMEOUT_S):
     """One polite request. Returns (status, json_or_text, headers). Status 0 = no response."""
     global _last_mb_call, _lb_wait_until
 
     # Fault injection: fail BEFORE reaching the network, so everything above http()
     # (the tool, classify_status, the retry wrapper, the loop) runs exactly as for a real failure.
+    # It comes before the cache, so the same inject file fails the same calls whether or not the cache is warm.
     fake_status = injected_failure(url)
     if fake_status is not None:
         return fake_status, "injected", {}
+
+    # Cache: a MusicBrainz read we already answered recently skips the rate-limit wait and the network.
+    cache_params = params                       # the caller's parameters, before "fmt" is added below
+    if is_cacheable(method, url):
+        cached_body = cache_get(url, cache_params)
+        if cached_body is not None:
+            return 200, cached_body, {}
 
     if url.startswith(MB_API):
         wait = _last_mb_call + MB_MIN_INTERVAL_S - time.monotonic()
@@ -171,9 +235,14 @@ def http(method: str, url: str, *, params=None, body=None, auth=False, timeout=R
     if url.startswith(LB_API) and r.headers.get("X-RateLimit-Remaining") == "0":
         _lb_wait_until = time.monotonic() + float(r.headers.get("X-RateLimit-Reset-In", "1"))
     try:
-        return r.status_code, r.json(), r.headers
+        response_body = r.json()
     except ValueError:
         return r.status_code, r.text, r.headers
+
+    # Only successful answers are cached: caching a 503 would make a temporary outage permanent.
+    if r.status_code == 200 and is_cacheable(method, url):
+        cache_put(url, cache_params, response_body)
+    return r.status_code, response_body, r.headers
 
 
 # ---------------------------------------------------------------- worked examples
@@ -349,7 +418,8 @@ def verify_recordings(recording_mbids: list[str]) -> str:
     if not verified:
         return fail("resource", f"None of these MBIDs exist in MusicBrainz: {not_found}. "
                                 "Do not write them; find tracks with search_recordings or lb_radio.").to_json()
-    VERIFIED_MBIDS.update(v["recording_mbid"] for v in verified)
+    for recording in verified:
+        VERIFIED_RECORDINGS[recording["recording_mbid"]] = recording
     return ok({"verified": verified, "not_found": not_found}).to_json()
 
 
@@ -429,7 +499,7 @@ def _own_playlists():
 
 
 def _unverified(recording_mbids: list[str]) -> list[str]:
-    return [m for m in recording_mbids if m not in VERIFIED_MBIDS]
+    return [m for m in recording_mbids if m not in VERIFIED_RECORDINGS]
 
 
 def find_playlists(query: str = "") -> str:
@@ -722,10 +792,39 @@ def call_tool(name: str, arguments_json: str, allowed: set[str]) -> str:
 NO_AUTO_RETRY = {"add_playlist_items", "export_playlist"}   # not idempotent: a retry could apply them twice
 
 
+def call_tool_and_trace(name: str, arguments_json: str, allowed: set[str], attempt: int,
+                        waited_s: float = 0.0) -> tuple[str, dict]:
+    """Run one attempt of a tool and record it as a tool_call trace event. Returns (result JSON, parsed)."""
+    start = time.monotonic()
+    result = call_tool(name, arguments_json, allowed)
+    parsed = json.loads(result)
+
+    # Record the arguments as a dict when they are valid JSON, otherwise as the raw text the model sent.
+    try:
+        args_for_trace = json.loads(arguments_json or "{}")
+    except json.JSONDecodeError:
+        args_for_trace = arguments_json
+
+    if parsed["success"]:
+        message = "ok"
+    else:
+        message = parsed["error"]
+
+    tracer.log("tool_call",
+               tool=name,
+               args=args_for_trace,
+               attempt=attempt,
+               waited_s=round(waited_s, 1),          # backoff wait before this attempt (0 on the first try)
+               success=parsed["success"],
+               error_category=parsed["error_category"],
+               message=message,
+               latency_ms=round((time.monotonic() - start) * 1000))
+    return result, parsed
+
+
 def call_tool_with_retry(name: str, arguments_json: str, allowed: set[str]) -> str:
     """The LOOP retries transient errors with backoff; the model only sees the final outcome."""
-    result = call_tool(name, arguments_json, allowed)
-    error = json.loads(result)
+    result, error = call_tool_and_trace(name, arguments_json, allowed, attempt=1)
     if error["error_category"] != "transient":
         return result
     if name in NO_AUTO_RETRY:
@@ -734,8 +833,7 @@ def call_tool_with_retry(name: str, arguments_json: str, allowed: set[str]) -> s
     for attempt, delay in enumerate(backoff_delays(), start=2):
         print(f"    {name}: {error['error']} Retrying in {delay:.1f}s (attempt {attempt}).")
         time.sleep(delay)
-        result = call_tool(name, arguments_json, allowed)
-        error = json.loads(result)
+        result, error = call_tool_and_trace(name, arguments_json, allowed, attempt=attempt, waited_s=delay)
         if error["error_category"] != "transient":
             return result
     # Still failing after backoff: the spec treats this as a block, so stop instead of hammering the service.
@@ -750,9 +848,14 @@ def finish(messages: list[dict], mode: str, note: Optional[str] = None) -> tuple
     claim = None
     for tier in ("expensive", "cheap"):          # if the expensive model fails, don't lose the answer
         try:
-            message, _ = llm.chat(messages, mode, tier, [FINAL_ANSWER_SCHEMA], FORCE_FINAL_ANSWER)
-        except requests.RequestException:
+            message, meta = llm.chat(messages, mode, tier, [FINAL_ANSWER_SCHEMA], FORCE_FINAL_ANSWER)
+        except requests.RequestException as exc:
+            tracer.log("llm_call", purpose="final_answer", tier=tier, model=llm.model_for(mode, tier),
+                       success=False, message=f"{type(exc).__name__}: {exc}")
             continue
+        tracer.log("llm_call", purpose="final_answer", success=True,
+                   structured=bool(message.get("tool_calls")),   # False = the model ignored the forced final_answer
+                   **meta)
         if message.get("tool_calls"):            # the structured answer we asked for
             try:
                 arguments = json.loads(message["tool_calls"][0]["function"]["arguments"])
@@ -830,18 +933,131 @@ def build_messages(rules: str, guidance: str, request: str, history: list[dict])
 
     return messages
 
+def ask_user(summary: str) -> bool:
+    print(f"\n{summary}")
+    try:
+        answer = input("Proceed? [y/n]")
+    except EOFError:
+        return False
+    if answer.strip().lower() in ("y", "yes"):
+        return True
+    else:
+        return False
+    
+WRITE_TOOLS = {"create_playlist", "add_playlist_items", "remove_playlist_items",
+               "set_feedback", "export_playlist", "delete_playlist"}
+ALWAYS_APPROVE = {"export_playlist", "delete_playlist"}
+def needs_approval(name: str, arguments:dict, request: str) -> bool:
+    if name not in WRITE_TOOLS:
+        return False
+    if name in ALWAYS_APPROVE:
+        return True
+    if name == "set_feedback" and arguments.get("action", "") in request.lower():
+        # The user's own message named this exact action ("love the second song").
+        return False
+    # Every other write asks.
+    return True
+
+def _song_name(recording_mbid: str) -> str:
+    """'Title — Artist' for a verified recording, or the bare MBID if we don't know it."""
+    recording = VERIFIED_RECORDINGS.get(recording_mbid)
+    if recording is None:
+        return f"(unverified recording {recording_mbid})"
+    else:
+        return f"{recording['title']} — {recording['artist']}"
+
+
+def _playlist_name(playlist_mbid: str) -> str:
+    """The playlist's title, looked up with a read; the bare ID if the lookup fails."""
+    _, playlists = _own_playlists()
+    if playlists is None:
+        return f"playlist {playlist_mbid}"
+    for playlist in playlists:
+        if playlist["playlist_mbid"] == playlist_mbid:
+            return f'"{playlist["title"]}"'
+    return f"playlist {playlist_mbid} (not found in your account)"
+
+
+def _track_list(recording_mbids: list[str]) -> str:
+    """A numbered list of songs plus the total length, for playlist summaries."""
+    lines = []
+    total_seconds = 0
+    for number, mbid in enumerate(recording_mbids, start=1):
+        lines.append(f"   {number}. {_song_name(mbid)}")
+        recording = VERIFIED_RECORDINGS.get(mbid)
+        if recording is not None:
+            total_seconds += recording.get("length_s") or 0
+    minutes = round(total_seconds / 60)
+    header = f"  {len(recording_mbids)} tracks, about {minutes} min"
+    return header + "\n" + "\n".join(lines)
+
+
+def describe_write(name: str, arguments: dict) -> str:
+    """A readable summary of a write, built from the ACTUAL arguments that will run.
+
+    The user approves what this describes, so it must come from the real call,
+    never from the model's own description of what it is about to do.
+    """
+    if name == "create_playlist":
+        title = arguments.get("title", "")
+        if not title.startswith(ENCORE_MARKER):
+            title = f"{ENCORE_MARKER} {title}"          # the tool adds the marker; show the real title
+        if arguments.get("public", False):
+            visibility = "public"
+        else:
+            visibility = "private"
+        return (f'Encore wants to CREATE a {visibility} playlist "{title}" in your ListenBrainz account:\n'
+                + _track_list(arguments.get("recording_mbids", [])))
+
+    elif name == "add_playlist_items":
+        return (f"Encore wants to ADD songs to {_playlist_name(arguments.get('playlist_mbid', ''))}:\n"
+                + _track_list(arguments.get("recording_mbids", [])))
+
+    elif name == "remove_playlist_items":
+        return (f"Encore wants to REMOVE {_song_name(arguments.get('recording_mbid', ''))} "
+                f"from {_playlist_name(arguments.get('playlist_mbid', ''))}.")
+
+    elif name == "set_feedback":
+        action = arguments.get("action", "?").upper()
+        return f"Encore wants to {action} {_song_name(arguments.get('recording_mbid', ''))} on ListenBrainz."
+
+    elif name == "delete_playlist":
+        return (f"Encore wants to DELETE {_playlist_name(arguments.get('playlist_mbid', ''))}.\n"
+                "  This cannot be undone.")
+
+    elif name == "export_playlist":
+        service = arguments.get("service", "?").replace("_", " ").title()
+        return (f"Encore wants to EXPORT {_playlist_name(arguments.get('playlist_mbid', ''))} to {service}.\n"
+                f"  This creates a playlist in your {service} library that Encore cannot remove.")
+
+    else:
+        # A write tool without its own description yet: show the raw call rather than nothing.
+        return f"Encore wants to run {name} with {arguments}"
+
 
 def run_request(request: str, history: list[dict], rules: str, guidance: str, mode: str) -> tuple[str, str]:
     """One user request through the bounded ReAct loop. Appends this turn to history."""
+    tracer.start_request()
+    tracer.log("request", text=request)
+
     route = router.route(request, mode)
+    # route["meta"] holds the router model's name, tier, tokens, and latency (empty if the call itself failed).
+    tracer.log("route", domains=route["domains"], fallback=route["fallback"], message=route["error"], **route["meta"])
     schemas = router.tools_for(route["domains"])
     allowed = {s["function"]["name"] for s in schemas} - {"final_answer"}
     history.append({"role": "user", "content": request})
 
+    # keep track of requests the user declined so they arent asked twice
+    declined = set()
+    steps_used = 0
+
     for step in range(1, MAX_STEPS + 1):
+        steps_used = step
         messages = build_messages(rules, guidance, request, history)
-        message, _ = llm.chat(messages, mode, "cheap", schemas)
+        message, meta = llm.chat(messages, mode, "cheap", schemas)
         tool_calls = message.get("tool_calls") or []
+        tracer.log("llm_call", purpose="step", step=step,
+                   tools_requested=[c["function"]["name"] for c in tool_calls], **meta)
 
         # Exit: the model thinks it's done (text only, or it called final_answer).
         if not tool_calls or any(c["function"]["name"] == "final_answer" for c in tool_calls):
@@ -853,11 +1069,42 @@ def run_request(request: str, history: list[dict], rules: str, guidance: str, mo
         halt = None # halt carries info from inner to outer loop about reason for halting after fatal error or policy failure
         for call in tool_calls:
             name = call["function"]["name"]
-            result = call_tool_with_retry(name, call["function"]["arguments"], allowed)
+            raw_arguments = call["function"]["arguments"]       # the JSON text, for call_tool
+            try:
+                arguments = json.loads(raw_arguments or "{}")   # a dict, for our own decisions
+            except json.JSONDecodeError:
+                arguments = {}      # call_tool will report the bad JSON to the model
+            if needs_approval(name, arguments, request):
+                # Identify this exact write: the tool plus its arguments. sort_keys makes the same
+                # arguments in a different order produce the same key; a string (unlike a dict) can go in a set.
+                call_key = (name, json.dumps(arguments, sort_keys=True))
+
+                if call_key in declined:
+                    # Already declined in this request: decline again without asking the user.
+                    tracer.log("approval", tool=name, args=arguments, decision="auto_declined")
+                    result = fail("resource", f"The user already declined this {name} call. It was NOT done. "
+                                              "Do not ask again; tell the user.").to_json()
+                else:
+                    summary = describe_write(name, arguments)
+                    if ask_user(summary):
+                        tracer.log("approval", tool=name, args=arguments, decision="approved", summary=summary)
+                        result = call_tool_with_retry(name, raw_arguments, allowed)
+                    else:
+                        tracer.log("approval", tool=name, args=arguments, decision="declined", summary=summary)
+                        declined.add(call_key)        # remember the no for the rest of this request
+                        result = fail("resource", f"The user declined action: {name}. It was NOT done. Do not retry. Tell the user").to_json()
+            else:
+                if name in WRITE_TOOLS:
+                    # A write that skipped the prompt because the user's message asked for it: record why.
+                    tracer.log("approval", tool=name, args=arguments, decision="exempt",
+                               reason="the current message explicitly asked for this change")
+                result = call_tool_with_retry(name, raw_arguments, allowed)
+
             parsed = json.loads(result)
             print(f"  [{step}] {name}: {'ok' if parsed['success'] else parsed['error']}")
             if name == "search_recordings" and parsed["success"]:          # search results count as verified
-                VERIFIED_MBIDS.update(r["recording_mbid"] for r in parsed["data"]["recordings"])
+                for recording in parsed["data"]["recordings"]:
+                    VERIFIED_RECORDINGS[recording["recording_mbid"]] = recording
             history.append({"role": "tool", "tool_call_id": call["id"], "content": result})
 
             # Exits the loop decides on its own, without asking the model.
@@ -875,6 +1122,7 @@ def run_request(request: str, history: list[dict], rules: str, guidance: str, mo
         messages = build_messages(rules, guidance, request, history)
         status, answer = finish(messages, mode, note=BUDGET_NOTE)
 
+    tracer.log("final", status=status, steps=steps_used, answer=answer[:tracer.MAX_MESSAGE_CHARS])
     history.append({"role": "assistant", "content": answer})
     return status, answer
 
@@ -899,32 +1147,54 @@ def run_session(mode: str) -> None:
     #         approval, compress working memory past its budget, log every step (Part 6)
     # TODO 5: end the loop only through final_answer or a termination status (Part 4)
     # TODO 6: session end -- structured summary, quality check, dedup, store (Part 5)
-    # Procedural memory: read the prompt once and split it into the reinjected rules and the rest.
-    prompt_text = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    rules = prompt_section(prompt_text, "Rules")
-    guidance = "\n\n".join([
-        prompt_section(prompt_text, "Role"),
-        prompt_section(prompt_text, "Memory"),
-        prompt_section(prompt_text, "Tools"),
-    ])
-    history: list[dict] = []                                           # working memory, kept across requests
+    session_id = tracer.start_session()
+    requests_handled = 0
+    try:
+        # Version pinning: the first line of every trace says which prompt and models this session used.
+        tracer.log("session_start",
+                   mode=mode,
+                   prompt_version=SYSTEM_PROMPT_PATH.name,              # "system_v1.md"
+                   model_cheap=llm.model_for(mode, "cheap"),
+                   model_expensive=llm.model_for(mode, "expensive"),
+                   max_steps=MAX_STEPS,
+                   inject=INJECT or None)                               # fault-injection settings, if any
 
-    print("Encore is ready. Ask about your music, or type 'quit' to end the session.")
-    while True:
-        request = input("\nyou> ").strip()
-        if request.lower() in ("quit", "exit", "q"):
-            break
-        if not request:
-            continue
-        turn_start = len(history)
-        try:
-            status, answer = run_request(request, history, rules, guidance, mode)
-        except Exception as exc:
-            # One bad request must not end the session. Roll back this turn's half-written messages
-            # (e.g. a tool call with no result) so the next request starts from a valid history.
-            del history[turn_start:]
-            status, answer = "stuck", describe_crash(exc)
-        print(f"\nencore [{status}]> {answer}")
+        # Procedural memory: read the prompt once and split it into the reinjected rules and the rest.
+        prompt_text = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+        rules = prompt_section(prompt_text, "Rules")
+        guidance = "\n\n".join([
+            prompt_section(prompt_text, "Role"),
+            prompt_section(prompt_text, "Memory"),
+            prompt_section(prompt_text, "Tools"),
+        ])
+        history: list[dict] = []                                       # working memory, kept across requests
+
+        print(f"Encore is ready (session {session_id}). Ask about your music, or type 'quit' to end the session.")
+        while True:
+            try:
+                request = input("\nyou> ").strip()
+            except EOFError:
+                break                                                  # input ended (e.g. piped): end the session
+            if request.lower() in ("quit", "exit", "q"):
+                break
+            if not request:
+                continue
+            requests_handled += 1
+            turn_start = len(history)
+            try:
+                status, answer = run_request(request, history, rules, guidance, mode)
+            except Exception as exc:
+                # One bad request must not end the session. Roll back this turn's half-written messages
+                # (e.g. a tool call with no result) so the next request starts from a valid history.
+                del history[turn_start:]
+                status, answer = "stuck", describe_crash(exc)
+                tracer.log("final", status=status, crashed=True, message=f"{type(exc).__name__}: {exc}")
+            print(f"\nencore [{status}]> {answer}")
+    finally:
+        # Runs once, however the session ends (quit, end of input, crash, Ctrl-C).
+        # The end-of-session episodic summary will go here too (Part 5).
+        tracer.log("session_end", requests=requests_handled)
+        tracer.end_session()
 
 
 def forget_user(user_id: str) -> None:
@@ -938,6 +1208,7 @@ if __name__ == "__main__":
     parser.add_argument("--forget", action="store_true", help="delete every memory for ENCORE_USER_ID")
     parser.add_argument("--inject", metavar="FILE.json", help="fault injection: transient_rate, max_steps, seed")
     args = parser.parse_args()
+    CACHE_ENABLED = True                     # real runs cache MusicBrainz reads (unit tests leave it off)
     if args.inject:
         load_injection(args.inject)
     if args.forget:
