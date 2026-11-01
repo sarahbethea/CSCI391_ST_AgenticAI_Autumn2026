@@ -22,6 +22,8 @@ from typing import Any, Optional
 import requests
 from dotenv import load_dotenv
 
+import episodic
+import hot_state
 import llm
 import router
 import tracer
@@ -48,11 +50,24 @@ UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 RADIO_MODES = ("easy", "medium", "hard")
 MAX_VERIFY = 25          # MBIDs per verify_recordings call (one MusicBrainz search)
 
-# Recordings confirmed this session (by verify_recordings or search_recordings), keyed by MBID:
-#   {"f5971e52-...": {"recording_mbid": ..., "title": ..., "artist": ..., "length_s": ...}}
-# Playlist writes check membership; approval summaries use the titles and lengths.
-# TODO: move into hot state (Part 5.1) once that store exists.
-VERIFIED_RECORDINGS: dict[str, dict] = {}
+
+
+# ---------------------------------------------------------------- hot state helpers (Part 5.1)
+
+def get_verified() -> dict[str, dict]:
+    """Recordings confirmed this session (by verify_recordings or search_recordings), keyed by MBID:
+        {"f5971e52-...": {"recording_mbid": ..., "title": ..., "artist": ..., "length_s": ...}}
+    Playlist writes check membership; approval summaries use the titles and lengths.
+    """
+    return hot_state.get_value(ENCORE_USER_ID, "verified_recordings", default={})
+
+
+def add_verified(recordings: list[dict]) -> None:
+    """Add confirmed recordings to this session's verified set in hot state."""
+    verified = get_verified()
+    for recording in recordings:
+        verified[recording["recording_mbid"]] = recording
+    hot_state.set_value(ENCORE_USER_ID, "verified_recordings", verified)
 
 
 @dataclass
@@ -418,8 +433,7 @@ def verify_recordings(recording_mbids: list[str]) -> str:
     if not verified:
         return fail("resource", f"None of these MBIDs exist in MusicBrainz: {not_found}. "
                                 "Do not write them; find tracks with search_recordings or lb_radio.").to_json()
-    for recording in verified:
-        VERIFIED_RECORDINGS[recording["recording_mbid"]] = recording
+    add_verified(verified)
     return ok({"verified": verified, "not_found": not_found}).to_json()
 
 
@@ -499,7 +513,8 @@ def _own_playlists():
 
 
 def _unverified(recording_mbids: list[str]) -> list[str]:
-    return [m for m in recording_mbids if m not in VERIFIED_RECORDINGS]
+    verified = get_verified()
+    return [m for m in recording_mbids if m not in verified]
 
 
 def find_playlists(query: str = "") -> str:
@@ -618,20 +633,32 @@ def export_playlist(playlist_mbid: str, service: str) -> str:
 
 # ---------------------------------------------------------------- memory
 
-# Preferences the user states this session. TODO: move into hot state (Part 5.1).
-SESSION_PREFERENCES: list[str] = []
-
-
 def note_preference(preference: str) -> str:
+    """Record a preference the user stated, in hot state (session_preferences) for the rest of the session."""
     if not preference.strip():
         return fail("input", "preference must not be empty.").to_json()
-    SESSION_PREFERENCES.append(preference.strip())
-    return ok({"noted": preference.strip(), "session_preferences": SESSION_PREFERENCES}).to_json()
+    preferences = hot_state.get_value(ENCORE_USER_ID, "session_preferences", default=[])
+    if preference.strip() not in preferences:            # don't store the same preference twice
+        preferences.append(preference.strip())
+    hot_state.set_value(ENCORE_USER_ID, "session_preferences", preferences)
+    return ok({"noted": preference.strip(), "session_preferences": preferences}).to_json()
 
 
 def search_past_sessions(query: str) -> str:
-    # TODO (Part 5): query the episodic ChromaDB collection, filtered by ENCORE_USER_ID.
-    return fail("resource", "Episodic memory is not available yet; ask the user instead.").to_json()
+    """Search episodic memory mid-session ("like last time"), filtered to this user and reranked by recency."""
+    if not query.strip():
+        return fail("input", "query must not be empty, e.g. 'focus playlist'.").to_json()
+    memories = episodic.retrieve(ENCORE_USER_ID, query)
+    if not memories:
+        return fail("resource", f"No past sessions match '{query}'. Ask the user instead.").to_json()
+    sessions = []
+    for memory in memories:
+        if memory["quality"] == "flagged":
+            verify = True
+        else:
+            verify = False
+        sessions.append({"date": memory["date"], "summary": memory["text"], "verify_before_using": verify})
+    return ok({"note": episodic.STALENESS_INSTRUCTION, "sessions": sessions}).to_json()
 
 
 def search_music_knowledge(query: str) -> str:
@@ -908,7 +935,103 @@ def prompt_section(text: str, heading: str) -> str:
     return "\n".join(section_lines).strip()
 
 
-def build_messages(rules: str, guidance: str, request: str, history: list[dict]) -> list[dict]:
+def remember_from_result(name: str, parsed: dict) -> None:
+    """Update hot state after a tool call, from the tool's ACTUAL result.
+
+    The loop does this, not the model, so a confused model (or a playlist title containing
+    instructions) can't plant a wrong "active playlist". Only successful results are remembered.
+    """
+    user = ENCORE_USER_ID
+
+    # Count every tool call this session, successful or not.
+    count = hot_state.get_value(user, "tool_call_count", default=0)
+    hot_state.set_value(user, "tool_call_count", count + 1)
+
+    if not parsed["success"]:
+        return
+    data = parsed["data"]
+
+    if name == "search_recordings":
+        # Recordings found by a search count as verified (Part 4, "verify before writing").
+        add_verified(data["recordings"])
+        written_key = "verified_recordings"
+
+    elif name == "verify_recordings":
+        # The tool already added its results to hot state; just record that it happened.
+        written_key = "verified_recordings"
+
+    elif name == "create_playlist":
+        hot_state.set_value(user, "active_playlist",
+                            {"playlist_mbid": data["playlist_mbid"], "title": data["title"]},
+                            ttl_s=hot_state.CARRYOVER_TTL_S)
+        written_key = "active_playlist"
+
+    elif name == "add_playlist_items":
+        # Keep the title we already know if it is the same playlist; otherwise we only know its ID.
+        current = hot_state.get_value(user, "active_playlist")
+        if current is not None and current["playlist_mbid"] == data["playlist_mbid"]:
+            active = current
+        else:
+            active = {"playlist_mbid": data["playlist_mbid"]}
+        hot_state.set_value(user, "active_playlist", active, ttl_s=hot_state.CARRYOVER_TTL_S)
+        written_key = "active_playlist"
+
+    elif name == "set_feedback":
+        recording = get_verified().get(data["recording_mbid"], {"recording_mbid": data["recording_mbid"]})
+        hot_state.set_value(user, "last_recording", recording, ttl_s=hot_state.CARRYOVER_TTL_S)
+        written_key = "last_recording"
+
+    elif name == "lookup_artist":
+        hot_state.set_value(user, "last_artist", {"artist_mbid": data["artist_mbid"], "name": data["name"]},
+                            ttl_s=hot_state.CARRYOVER_TTL_S)
+        written_key = "last_artist"
+
+    elif name == "delete_playlist":
+        # Forget the active playlist if it was the one just deleted.
+        current = hot_state.get_value(user, "active_playlist")
+        if current is not None and current["playlist_mbid"] == data["deleted"]:
+            hot_state.delete_value(user, "active_playlist")
+        written_key = "active_playlist"
+
+    else:
+        return          # other tools don't change hot state
+
+    tracer.log("memory_write", store="hot_state", key=written_key, tool=name)
+
+
+def session_state_block() -> str:
+    """Hot state as a short text block for the model, or "" if there is nothing to say yet."""
+    lines = []
+
+    active_playlist = hot_state.get_value(ENCORE_USER_ID, "active_playlist")
+    if active_playlist:
+        lines.append(f"- Active playlist: {active_playlist.get('title', '(untitled)')} "
+                     f"(playlist_mbid {active_playlist['playlist_mbid']})")
+
+    last_recording = hot_state.get_value(ENCORE_USER_ID, "last_recording")
+    if last_recording:
+        lines.append(f"- Last song discussed: {last_recording.get('title', '?')} — {last_recording.get('artist', '?')} "
+                     f"(recording_mbid {last_recording['recording_mbid']})")
+
+    last_artist = hot_state.get_value(ENCORE_USER_ID, "last_artist")
+    if last_artist:
+        lines.append(f"- Last artist discussed: {last_artist['name']} (artist_mbid {last_artist['artist_mbid']})")
+
+    preferences = hot_state.get_value(ENCORE_USER_ID, "session_preferences", default=[])
+    if preferences:
+        lines.append(f"- Preferences stated this session: {'; '.join(preferences)}")
+
+    verified = get_verified()
+    if verified:
+        lines.append(f"- Recordings verified this session: {len(verified)}")
+
+    if not lines:
+        return ""
+    return "Session state (recorded by Encore from tool results):\n" + "\n".join(lines)
+
+
+def build_messages(rules: str, guidance: str, request: str, history: list[dict],
+                   memory_block: str = "") -> list[dict]:
     """The messages for one model call, in the front-loaded order from Part 5.1.
 
     The rules are rebuilt here on every call and never stored in history,
@@ -925,8 +1048,15 @@ def build_messages(rules: str, guidance: str, request: str, history: list[dict])
     # 3. The current objective, restated so it stays visible after many tool steps.
     messages.append({"role": "system", "content": f"Current request: {request}"})
 
-    # 4. (later) Hot state and key facts about the user.
-    # 5. (later) Retrieved past-session summaries.
+    # 4. Hot state: facts the loop recorded from tool results (never summarized away).
+    state = session_state_block()
+    if state:
+        messages.append({"role": "system", "content": state})
+
+    # 5. Episodic memory: past-session summaries retrieved for the first message, under the staleness
+    #    instruction. Kept here (not in history) so it is present on every call of the session.
+    if memory_block:
+        messages.append({"role": "system", "content": memory_block})
 
     # 6. The conversation so far.
     messages.extend(history)
@@ -960,7 +1090,7 @@ def needs_approval(name: str, arguments:dict, request: str) -> bool:
 
 def _song_name(recording_mbid: str) -> str:
     """'Title — Artist' for a verified recording, or the bare MBID if we don't know it."""
-    recording = VERIFIED_RECORDINGS.get(recording_mbid)
+    recording = get_verified().get(recording_mbid)
     if recording is None:
         return f"(unverified recording {recording_mbid})"
     else:
@@ -980,11 +1110,12 @@ def _playlist_name(playlist_mbid: str) -> str:
 
 def _track_list(recording_mbids: list[str]) -> str:
     """A numbered list of songs plus the total length, for playlist summaries."""
+    verified = get_verified()
     lines = []
     total_seconds = 0
     for number, mbid in enumerate(recording_mbids, start=1):
         lines.append(f"   {number}. {_song_name(mbid)}")
-        recording = VERIFIED_RECORDINGS.get(mbid)
+        recording = verified.get(mbid)
         if recording is not None:
             total_seconds += recording.get("length_s") or 0
     minutes = round(total_seconds / 60)
@@ -1035,7 +1166,8 @@ def describe_write(name: str, arguments: dict) -> str:
         return f"Encore wants to run {name} with {arguments}"
 
 
-def run_request(request: str, history: list[dict], rules: str, guidance: str, mode: str) -> tuple[str, str]:
+def run_request(request: str, history: list[dict], rules: str, guidance: str, mode: str,
+                memory_block: str = "") -> tuple[str, str]:
     """One user request through the bounded ReAct loop. Appends this turn to history."""
     tracer.start_request()
     tracer.log("request", text=request)
@@ -1053,7 +1185,7 @@ def run_request(request: str, history: list[dict], rules: str, guidance: str, mo
 
     for step in range(1, MAX_STEPS + 1):
         steps_used = step
-        messages = build_messages(rules, guidance, request, history)
+        messages = build_messages(rules, guidance, request, history, memory_block)
         message, meta = llm.chat(messages, mode, "cheap", schemas)
         tool_calls = message.get("tool_calls") or []
         tracer.log("llm_call", purpose="step", step=step,
@@ -1102,9 +1234,7 @@ def run_request(request: str, history: list[dict], rules: str, guidance: str, mo
 
             parsed = json.loads(result)
             print(f"  [{step}] {name}: {'ok' if parsed['success'] else parsed['error']}")
-            if name == "search_recordings" and parsed["success"]:          # search results count as verified
-                for recording in parsed["data"]["recordings"]:
-                    VERIFIED_RECORDINGS[recording["recording_mbid"]] = recording
+            remember_from_result(name, parsed)          # update hot state from what actually happened
             history.append({"role": "tool", "tool_call_id": call["id"], "content": result})
 
             # Exits the loop decides on its own, without asking the model.
@@ -1119,7 +1249,7 @@ def run_request(request: str, history: list[dict], rules: str, guidance: str, mo
             break
     else:
         # Exit: out of steps without finishing.
-        messages = build_messages(rules, guidance, request, history)
+        messages = build_messages(rules, guidance, request, history, memory_block)
         status, answer = finish(messages, mode, note=BUDGET_NOTE)
 
     tracer.log("final", status=status, steps=steps_used, answer=answer[:tracer.MAX_MESSAGE_CHARS])
@@ -1149,6 +1279,8 @@ def run_session(mode: str) -> None:
     # TODO 6: session end -- structured summary, quality check, dedup, store (Part 5)
     session_id = tracer.start_session()
     requests_handled = 0
+    history: list[dict] = []                 # working memory, kept across requests (defined here for the finally)
+    episodic_ready = False                   # only write episodic memory if the store opened cleanly
     try:
         # Version pinning: the first line of every trace says which prompt and models this session used.
         tracer.log("session_start",
@@ -1159,6 +1291,21 @@ def run_session(mode: str) -> None:
                    max_steps=MAX_STEPS,
                    inject=INJECT or None)                               # fault-injection settings, if any
 
+        # Hot state: clear last session's per-session keys, then record what carried over (Part 5.1).
+        cleared = hot_state.reset_session(ENCORE_USER_ID)
+        carried_over = hot_state.all_values(ENCORE_USER_ID)
+        tracer.log("memory_read", store="hot_state", cleared_session_keys=cleared, keys=sorted(carried_over))
+
+        # Episodic memory: refuse to start if the stored summaries came from another embedding model.
+        try:
+            episodic.check_embedding_model()
+        except episodic.EmbeddingModelMismatch as exc:
+            tracer.log("memory_read", store="episodic", success=False, message=str(exc))
+            print(f"Encore can't start: {exc}")
+            return
+        episodic_ready = True
+        memory_block = None                  # retrieved when the first message arrives (Part 5: "for the first message")
+
         # Procedural memory: read the prompt once and split it into the reinjected rules and the rest.
         prompt_text = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
         rules = prompt_section(prompt_text, "Rules")
@@ -1167,7 +1314,6 @@ def run_session(mode: str) -> None:
             prompt_section(prompt_text, "Memory"),
             prompt_section(prompt_text, "Tools"),
         ])
-        history: list[dict] = []                                       # working memory, kept across requests
 
         print(f"Encore is ready (session {session_id}). Ask about your music, or type 'quit' to end the session.")
         while True:
@@ -1180,9 +1326,18 @@ def run_session(mode: str) -> None:
             if not request:
                 continue
             requests_handled += 1
+
+            # Episodic read path, once per session: search past sessions with the FIRST message.
+            if memory_block is None:
+                memories = episodic.retrieve(ENCORE_USER_ID, request)
+                memory_block = episodic.prompt_block(memories)
+                if memories:
+                    dates = ", ".join(memory["date"] for memory in memories)
+                    print(f"  (remembering {len(memories)} past session(s): {dates})")
+
             turn_start = len(history)
             try:
-                status, answer = run_request(request, history, rules, guidance, mode)
+                status, answer = run_request(request, history, rules, guidance, mode, memory_block)
             except Exception as exc:
                 # One bad request must not end the session. Roll back this turn's half-written messages
                 # (e.g. a tool call with no result) so the next request starts from a valid history.
@@ -1192,14 +1347,38 @@ def run_session(mode: str) -> None:
             print(f"\nencore [{status}]> {answer}")
     finally:
         # Runs once, however the session ends (quit, end of input, crash, Ctrl-C).
-        # The end-of-session episodic summary will go here too (Part 5).
+        # Episodic write path: summarize -> quality check -> dedup -> store (Part 5).
+        if episodic_ready and requests_handled > 0:
+            print("\nSaving what I learned this session...")
+            try:
+                outcome = episodic.write_session(ENCORE_USER_ID, history, mode)
+                print(f"  episodic memory: {outcome['action']}"
+                      + (f" (quality: {outcome['quality']})" if "quality" in outcome else ""))
+            except Exception as exc:
+                # Saving memory must never crash the exit; the trace records what went wrong.
+                tracer.log("memory_write", store="episodic", action="failed", message=f"{type(exc).__name__}: {exc}")
+                print(f"  episodic memory: not saved ({type(exc).__name__})")
         tracer.log("session_end", requests=requests_handled)
         tracer.end_session()
 
 
-def forget_user(user_id: str) -> None:
-    # TODO 7: delete every stored item for user_id from EVERY store and print the counts
-    raise NotImplementedError
+def forget_user(user_id: str) -> dict[str, int]:
+    """Privacy path (--forget): delete every item Encore stores about user_id, from EVERY store.
+
+    Each memory store adds one line here as it is built. It never touches the user's ListenBrainz
+    account: listens, feedback, and playlists there are the user's data, not Encore's memory.
+    """
+    counts = {}
+    counts["hot state"] = hot_state.forget_user(user_id)
+    counts["episodic summaries"] = episodic.forget_user(user_id)
+    # (later) counts["long-term preferences"] = ...
+    # (later) counts["archived logs"] = ...
+
+    print(f"Forgot everything Encore remembered about '{user_id}':")
+    for store, deleted in counts.items():
+        print(f"  {store:<22} {deleted} item(s) deleted")
+    print("Your ListenBrainz account was not touched.")
+    return counts
 
 
 if __name__ == "__main__":
@@ -1207,11 +1386,15 @@ if __name__ == "__main__":
     parser.add_argument("mode", choices=["online", "offline"])
     parser.add_argument("--forget", action="store_true", help="delete every memory for ENCORE_USER_ID")
     parser.add_argument("--inject", metavar="FILE.json", help="fault injection: transient_rate, max_steps, seed")
+    parser.add_argument("--reindex-episodic", action="store_true",
+                        help="re-embed all episodic summaries with the configured embedding model")
     args = parser.parse_args()
     CACHE_ENABLED = True                     # real runs cache MusicBrainz reads (unit tests leave it off)
     if args.inject:
         load_injection(args.inject)
     if args.forget:
         forget_user(ENCORE_USER_ID)
+    elif args.reindex_episodic:
+        print(f"Re-indexed {episodic.reindex()} episodic summaries with '{episodic.EMBEDDING_MODEL}'.")
     else:
         run_session(args.mode)

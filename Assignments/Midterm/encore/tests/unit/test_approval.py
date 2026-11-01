@@ -76,9 +76,8 @@ def test_a_new_request_asks_again(agent_module, stubborn_model):
     assert len(asked) == 2, "declines only last for the request they happened in"
 
 
-def test_summary_shows_song_titles_not_ids(agent_module, monkeypatch):
-    monkeypatch.setitem(agent_module.VERIFIED_RECORDINGS, "m1",
-                        {"recording_mbid": "m1", "title": "Tech Noir", "artist": "GUNSHIP", "length_s": 300})
+def test_summary_shows_song_titles_not_ids(agent_module):
+    agent_module.add_verified([{"recording_mbid": "m1", "title": "Tech Noir", "artist": "GUNSHIP", "length_s": 300}])
     summary = agent_module.describe_write("create_playlist", {"title": "Focus", "recording_mbids": ["m1"]})
     assert "Tech Noir — GUNSHIP" in summary
     assert "[Encore] Focus" in summary
