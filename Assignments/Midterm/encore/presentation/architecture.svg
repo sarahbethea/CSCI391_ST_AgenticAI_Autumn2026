@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 880" width="1600" height="880"
+     font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <style>
+      .title { font-size: 21px; font-weight: 700; fill: #0f172a; }
+      .head  { font-size: 18px; font-weight: 700; fill: #0f172a; }
+      .body  { font-size: 15px; fill: #334155; }
+      .small { font-size: 14px; fill: #475569; }
+      .code  { font-size: 14px; fill: #334155; font-family: Menlo, Consolas, monospace; }
+      .label { font-size: 14px; fill: #334155; font-style: italic; }
+      .line  { stroke: #334155; stroke-width: 2; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="880" fill="#ffffff"/>
+
+  <!-- ============ TOP ROW: request path ============ -->
+
+  <!-- You -->
+  <rect x="40" y="175" width="140" height="110" rx="12" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="110" y="222" text-anchor="middle" class="title">You</text>
+  <text x="110" y="248" text-anchor="middle" class="small">terminal chat</text>
+  <path d="M180,230 H218" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Router -->
+  <rect x="220" y="140" width="230" height="180" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="335" y="172" text-anchor="middle" class="title">Router</text>
+  <text x="335" y="192" text-anchor="middle" class="code">router.py</text>
+  <text x="240" y="222" class="body">cheap model, forced</text>
+  <text x="240" y="242" class="body">classify_intent → domains</text>
+  <text x="240" y="268" class="body">+ COMPANIONS rule:</text>
+  <text x="240" y="288" class="small">discovery / library</text>
+  <text x="240" y="306" class="small">always bring catalog</text>
+  <path d="M450,230 H488" class="line" marker-end="url(#arrow)"/>
+
+  <!-- ReAct loop -->
+  <rect x="490" y="40" width="660" height="370" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5"/>
+  <text x="515" y="72" class="title">Bounded ReAct loop</text>
+  <text x="1125" y="72" text-anchor="end" class="code">run_request · encore.py · max 12 steps</text>
+
+  <!-- 1 build_messages -->
+  <rect x="515" y="88" width="610" height="62" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="530" y="112" class="head">1  build_messages</text>
+  <text x="530" y="136" class="small">rules → guidance → request → hot state → episodic memories → history</text>
+
+  <!-- 2 llm.chat -->
+  <rect x="515" y="165" width="610" height="60" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="530" y="189" class="head">2  llm.chat — choose the next tool</text>
+  <text x="530" y="212" class="small">cheap model each step (OpenRouter) · sees every tool result</text>
+
+  <!-- 3 act: write? approval, call -->
+  <path d="M590,225 V248" class="line" marker-end="url(#arrow)"/>
+  <rect x="515" y="250" width="150" height="66" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="590" y="276" text-anchor="middle" class="head">write tool?</text>
+  <text x="590" y="299" text-anchor="middle" class="small">reads skip the gate</text>
+  <path d="M665,283 H688" class="line" marker-end="url(#arrow)"/>
+
+  <rect x="690" y="250" width="195" height="66" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+  <text x="787" y="276" text-anchor="middle" class="head">Approval gate</text>
+  <text x="787" y="299" text-anchor="middle" class="small">y / yes only · fails closed</text>
+  <path d="M885,283 H903" class="line" marker-end="url(#arrow)"/>
+
+  <rect x="905" y="250" width="220" height="66" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="1015" y="276" text-anchor="middle" class="head">call_tool_with_retry</text>
+  <text x="1015" y="299" text-anchor="middle" class="small">backoff · writes never retried</text>
+
+  <!-- result flows back up to the model -->
+  <path d="M1085,250 V227" class="line" marker-end="url(#arrow)"/>
+  <text x="1093" y="243" class="label">result</text>
+
+  <!-- 4 finish -->
+  <rect x="515" y="331" width="610" height="64" rx="8" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="530" y="355" class="head">3  finish() → final_answer  <tspan class="small" font-weight="400">(expensive model writes the answer)</tspan></text>
+  <text x="530" y="380" class="small">loop sets: answered · answered_low_confidence · stuck · budget_exceeded · policy_halt</text>
+
+  <!-- loop → tools -->
+  <path d="M1125,290 H1188" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Tools -->
+  <rect x="1190" y="140" width="175" height="195" rx="12" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>
+  <text x="1277" y="172" text-anchor="middle" class="title">~20 Tools</text>
+  <text x="1277" y="192" text-anchor="middle" class="small">return a ToolResult</text>
+  <text x="1210" y="222" class="body">listening</text>
+  <text x="1210" y="244" class="body">catalog</text>
+  <text x="1210" y="266" class="body">discovery</text>
+  <text x="1210" y="288" class="body">library (writes)</text>
+  <text x="1210" y="310" class="body">memory</text>
+  <path d="M1365,240 H1398" class="line" marker-end="url(#arrow)"/>
+
+  <!-- http + APIs -->
+  <rect x="1400" y="130" width="160" height="220" rx="12" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+  <text x="1480" y="162" text-anchor="middle" class="title">http()</text>
+  <text x="1480" y="188" text-anchor="middle" class="small">inject faults →</text>
+  <text x="1480" y="207" text-anchor="middle" class="small">7-day cache →</text>
+  <text x="1480" y="226" text-anchor="middle" class="small">polite network</text>
+  <line x1="1420" y1="244" x2="1540" y2="244" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="1480" y="272" text-anchor="middle" class="head">ListenBrainz</text>
+  <text x="1480" y="300" text-anchor="middle" class="head">MusicBrainz</text>
+  <text x="1480" y="326" text-anchor="middle" class="small">→ Spotify export</text>
+
+  <!-- ============ CONNECTORS: memory ↔ loop ============ -->
+
+  <!-- working memory ↔ loop -->
+  <path d="M300,478 V445 H540 V412" class="line" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="310" y="437" class="label">read every call · tool results written</text>
+
+  <!-- procedural → loop -->
+  <path d="M640,478 V412" class="line" marker-end="url(#arrow)"/>
+  <text x="648" y="452" class="label">rules first, every call</text>
+
+  <!-- episodic: read at first message, write at quit -->
+  <path d="M900,478 V412" class="line" marker-end="url(#arrow)"/>
+  <text x="908" y="440" class="label">read · first message</text>
+  <path d="M1110,412 V478" class="line" marker-end="url(#arrow)"/>
+  <text x="1118" y="462" class="label">write · at quit</text>
+
+  <!-- tools → semantic (planned) -->
+  <path d="M1277,335 V478" class="line" marker-end="url(#arrow)"/>
+  <text x="1285" y="420" class="label">search_music_knowledge</text>
+
+  <!-- ============ BOTTOM ROW: four memory types ============ -->
+
+  <!-- Working -->
+  <rect x="40" y="480" width="360" height="225" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <text x="60" y="512" class="title">Working memory</text>
+  <text x="60" y="536" class="code">history + hot_state.py</text>
+  <text x="60" y="558" class="code">memory/hot_state.db (SQLite)</text>
+  <text x="60" y="586" class="body">active playlist · verified songs</text>
+  <text x="60" y="608" class="body">session preferences · 24 h carryover</text>
+  <rect x="60" y="628" width="320" height="56" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="76" y="651" class="head">Compression <tspan class="small" font-weight="400">(planned)</tspan></text>
+  <text x="76" y="672" class="small">cheap-model summary keeps active state</text>
+
+  <!-- Procedural -->
+  <rect x="420" y="480" width="360" height="225" rx="12" fill="#fdf2f8" stroke="#db2777" stroke-width="2"/>
+  <text x="440" y="512" class="title">Procedural memory</text>
+  <text x="440" y="536" class="code">prompts/system_v1.md</text>
+  <text x="440" y="558" class="code">prompts/CHANGELOG.md</text>
+  <text x="440" y="586" class="body">role · rules · tool workflows</text>
+  <text x="440" y="608" class="body">Rules section reinjected first</text>
+  <text x="440" y="630" class="body">on every model call</text>
+  <text x="440" y="658" class="small">versioned like code: a change is a</text>
+  <text x="440" y="677" class="small">new prompt version + changelog entry</text>
+
+  <!-- Episodic -->
+  <rect x="800" y="480" width="360" height="225" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="820" y="512" class="title">Episodic memory</text>
+  <text x="820" y="536" class="code">episodic.py</text>
+  <text x="820" y="558" class="code">memory/chroma (Chroma)</text>
+  <text x="820" y="586" class="body">dated summaries of past sessions</text>
+  <text x="820" y="610" class="body">read: top 3, 0.7·similarity + 0.3·recency</text>
+  <text x="820" y="634" class="body">write: summarize → quality check</text>
+  <text x="820" y="656" class="body">→ merge near-duplicates (≥ 0.93)</text>
+  <text x="820" y="682" class="small">90-day window · per-user · model recorded</text>
+
+  <!-- Semantic (planned) -->
+  <rect x="1180" y="480" width="380" height="225" rx="12" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="1200" y="512" class="title">Semantic memory</text>
+  <text x="1200" y="536" class="code">semantic.py · memory/semantic</text>
+  <text x="1200" y="564" class="body">ListenBrainz + MusicBrainz docs</text>
+  <text x="1200" y="588" class="body">+ my glossary of music terms</text>
+  <text x="1200" y="612" class="body">one chunk per section (≤ 256 tokens)</text>
+  <text x="1200" y="636" class="body">hybrid: vectors + BM25 (RRF)</text>
+  <text x="1200" y="662" class="small">answers "how does ListenBrainz work?"</text>
+  <text x="1200" y="682" class="small">questions, not facts about you</text>
+
+  <!-- ============ TRACES STRIP ============ -->
+  <rect x="40" y="735" width="1520" height="72" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="60" y="764" class="head">Traces  <tspan class="code" font-weight="400">tracer.py → traces/&lt;session&gt;.jsonl</tspan></text>
+  <text x="60" y="790" class="small">every route, llm_call, tool_call, approval, memory_read / memory_write and final event · secrets scrubbed · model versions recorded</text>
+
+  <!-- ============ LEGEND + FORGET ============ -->
+  <rect x="40" y="832" width="34" height="22" rx="4" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="84" y="849" class="small">built</text>
+  <rect x="140" y="832" width="34" height="22" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="184" y="849" class="small">planned</text>
+  <text x="1560" y="849" text-anchor="end" class="small"><tspan class="code">--forget</tspan> deletes hot state + episodic memory for the user (never ListenBrainz data)</text>
+</svg>

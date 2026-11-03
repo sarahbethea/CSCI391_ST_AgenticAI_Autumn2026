@@ -1,0 +1,9 @@
+{"ts": "2026-11-03T01:47:59+00:00", "session_id": "ba89dfcf", "request_id": 0, "event": "session_start", "mode": "online", "prompt_version": "system_v1.md", "model_cheap": "cohere/north-mini-code:free", "model_expensive": "meta-llama/llama-3.1-70b-instruct", "max_steps": 12, "inject": null}
+{"ts": "2026-11-03T01:47:59+00:00", "session_id": "ba89dfcf", "request_id": 0, "event": "memory_read", "store": "hot_state", "cleared_session_keys": 0, "keys": []}
+{"ts": "2026-11-03T01:47:59+00:00", "session_id": "ba89dfcf", "request_id": 0, "event": "memory_read", "store": "episodic", "query": "Thanks, that's all for now!", "results": [], "embedding_model": "all-MiniLM-L6-v2"}
+{"ts": "2026-11-03T01:47:59+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "request", "text": "Thanks, that's all for now!"}
+{"ts": "2026-11-03T01:48:00+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "route", "domains": ["none"], "fallback": false, "message": null, "model": "cohere/north-mini-code:free", "tier": "cheap", "tokens_in": 235, "tokens_out": 171, "cost": 0, "latency_ms": 853}
+{"ts": "2026-11-03T01:48:01+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "llm_call", "purpose": "step", "step": 1, "tools_requested": ["final_answer"], "model": "cohere/north-mini-code:free", "tier": "cheap", "tokens_in": 987, "tokens_out": 226, "cost": 0, "latency_ms": 1255}
+{"ts": "2026-11-03T01:48:04+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "llm_call", "purpose": "final_answer", "success": true, "structured": true, "model": "meta-llama/llama-3.1-70b-instruct", "tier": "expensive", "tokens_in": 1248, "tokens_out": 34, "cost": 0.0005128, "latency_ms": 2967}
+{"ts": "2026-11-03T01:48:04+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "final", "status": "answered", "steps": 1, "answer": "Goodbye!"}
+{"ts": "2026-11-03T01:48:04+00:00", "session_id": "ba89dfcf", "request_id": 1, "event": "session_end", "requests": 1}

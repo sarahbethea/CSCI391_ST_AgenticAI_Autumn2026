@@ -1,0 +1,1447 @@
+<!-- source: https://listenbrainz.readthedocs.io/en/latest/users/api/statistics.html -->
+<!-- site: ListenBrainz documentation -->
+
+# Statistics
+
+ListenBrainz has a statistics infrastructure that collects and computes statistics from the listen data that has been stored in the database. The endpoints in this section offer a way to get this data programmatically.
+
+### GET /1/stats/user/(mb_username: user_name)/artists
+Get top artists for user user_name.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "artists": [
+            {
+               "artist_mbid": "93e6118e-7fa8-49f6-9e02-699a1ebce105",
+               "artist_name": "The Local train",
+               "listen_count": 385
+            },
+            {
+               "artist_mbid": "ae9ed5e2-4caf-4b3d-9cb3-2ad626b91714",
+               "artist_name": "Lenka",
+               "listen_count": 333
+            },
+            {
+               "artist_mbid": "cc197bad-dc9c-440d-a5b5-d52ba2e14234",
+               "artist_name": "Coldplay",
+               "listen_count": 321
+            }
+        ],
+        "count": 3,
+        "total_artist_count": 175,
+        "range": "all_time",
+        "last_updated": 1588494361,
+        "user_id": "John Doe",
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+artist_mbid is an optional field and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of artists to return, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of artists to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 artists will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/releases
+Get top releases for user user_name.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "releases": [
+            {
+                "artist_mbids": [],
+                "artist_name": "Coldplay",
+                "listen_count": 26,
+                "release_mbid": "",
+                "release_name": "Live in Buenos Aires"
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "Ellie Goulding",
+                "listen_count": 25,
+                "release_mbid": "",
+                "release_name": "Delirium (Deluxe)"
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "The Fray",
+                "listen_count": 25,
+                "release_mbid": "",
+                "release_name": "How to Save a Life"
+            },
+        ],
+        "count": 3,
+        "total_release_count": 175,
+        "range": "all_time",
+        "last_updated": 1588494361,
+        "user_id": "John Doe",
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+artist_mbids and release_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of releases to return, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of releases to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 releases will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/release-groups
+Get top release groups for user user_name.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "release_groups": [
+            {
+                "artist_mbids": [
+                    "62162215-b023-4f0e-84bd-1e9412d5b32c",
+                    "faf4cefb-036c-4c88-b93a-5b03dd0a0e6b",
+                    "e07d9474-00ea-4460-ac27-88b46b3d976e"
+                ],
+                "artist_name": "All Time Low ft. Demi Lovato & blackbear",
+                "caa_id": 29179588350,
+                "caa_release_mbid": "ee65192d-31f3-437a-b170-9158d2172dbc",
+                "listen_count": 456,
+                "release_group_mbid": "326b4a29-dff5-4fab-87dc-efc1494001c6",
+                "release_group_name": "Monsters"
+            },
+            {
+                "artist_mbids": [
+                    "c8b03190-306c-4120-bb0b-6f2ebfc06ea9"
+                ],
+                "artist_name": "The Weeknd",
+                "caa_id": 25720993837,
+                "caa_release_mbid": "19e4f6cc-ca0c-4897-8dfc-a36914b7f998",
+                "listen_count": 381,
+                "release_group_mbid": "78570bea-2a26-467c-a3db-c52723ceb394",
+                "release_group_name": "After Hours"
+            }
+        ],
+        "count": 2,
+        "total_release_group_count": 175,
+        "range": "all_time",
+        "last_updated": 1588494361,
+        "user_id": "John Doe",
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+artist_mbids and release_group_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of releases to return, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of releases to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 releases will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/recordings
+Get top recordings for user user_name.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "recordings": [
+            {
+                "artist_mbids": [],
+                "artist_name": "Ellie Goulding",
+                "listen_count": 25,
+                "recording_mbid": "0fe11cd3-0be4-467b-84fa-0bd524d45d74",
+                "release_mbid": "",
+                "release_name": "Delirium (Deluxe)",
+                "track_name": "Love Me Like You Do - From \"Fifty Shades of Grey\""
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "The Fray",
+                "listen_count": 23,
+                "recording_mbid": "0008ab49-a6ad-40b5-aa90-9d2779265c22",
+                "release_mbid": "",
+                "release_name": "How to Save a Life",
+                "track_name": "How to Save a Life"
+            }
+        ],
+        "count": 2,
+        "total_recording_count": 175,
+        "range": "all_time",
+        "last_updated": 1588494361,
+        "user_id": "John Doe",
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+- We only calculate the top 1000 all_time recordings
+- artist_mbids, release_name, release_mbid and recording_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of recordings to return, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of recordings to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 recordings will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/listening-activity
+Get the listening activity for user user_name. The listening activity shows the number of listens the user has submitted over a period of time.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "from_ts": 1587945600,
+        "last_updated": 1592807084,
+        "listening_activity": [
+            {
+                "from_ts": 1587945600,
+                "listen_count": 26,
+                "time_range": "Monday 27 April 2020",
+                "to_ts": 1588031999
+            },
+            {
+                "from_ts": 1588032000,
+                "listen_count": 57,
+                "time_range": "Tuesday 28 April 2020",
+                "to_ts": 1588118399
+            },
+            {
+                "from_ts": 1588118400,
+                "listen_count": 33,
+                "time_range": "Wednesday 29 April 2020",
+                "to_ts": 1588204799
+            },
+        "to_ts": 1589155200,
+        "user_id": "ishaanshah"
+    }
+}
+Note
+- The example above shows the data for three days only, however we calculate the statistics for the current time range and the previous time range. For example for weekly statistics the data is calculated for the current as well as the past week.
+- For all_time listening activity statistics we only return the years which have more than zero listens.
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/artist-activity
+Get the artist activity for user user_name. The artist activity shows the total number of listens for each artist along with their albums and corresponding listen counts.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "artist_activity": [
+            {
+                "name": "Radiohead",
+                "artist_name": "Radiohead",
+                "artist_mbid": "a74b1b7f-71a5-4011-9441-dc7410c7388a",
+                "listen_count": 120,
+                "albums": [
+                    {
+                        "name": "OK Computer",
+                        "listen_count": 45,
+                        "release_group_mbid": "1c2b57e1-9b3d-4f5a-8c7d-9e0f1a2b3c4d"
+                    },
+                    {
+                        "name": "In Rainbows",
+                        "listen_count": 75,
+                        "release_group_mbid": null
+                    }
+                ]
+            },
+            {
+                "name": "The Beatles",
+                "artist_name": "The Beatles",
+                "artist_mbid": null,
+                "listen_count": 95,
+                "albums": [
+                    {
+                        "name": "Abbey Road",
+                        "listen_count": 60,
+                        "release_group_mbid": "2d3c68f2-0a4e-5g6b-9d8e-0f1a2b3c4d5e"
+                    },
+                    {
+                        "name": "Revolver",
+                        "listen_count": 35,
+                        "release_group_mbid": null
+                    }
+                ]
+            }
+        ],
+        "user_id": "foobar",
+        "range": "all_time",
+        "from_ts": 1609459200,
+        "to_ts": 1640995200,
+        "last_updated": 1640995200
+    }
+}
+Note
+- The example above shows artist activity data with two artists and their respective albums.
+- The statistics are aggregated based on the number of listens recorded for each artist and their albums.
+- Each artist entry includes:
+- name: The artist name (may be the credited name on the release group)
+- artist_name: The canonical artist name (only present for user-specific requests when available)
+- artist_mbid: The MusicBrainz artist ID (may be null if unavailable)
+- listen_count: Total number of listens for this artist
+- albums: List of albums/release groups for this artist
+- Each album entry includes:
+- name: The release group name
+- listen_count: Number of listens for this release group
+- release_group_mbid: The MusicBrainz release group ID (may be null if unavailable)
+Parameters:
+- range (str) – Optional stats range (see ALLOWED_STATISTICS_RANGE), defaults to all_time.
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/era-activity
+Get the release-year activity for user user_name. Each entry represents the number of listens to recordings whose original release year equals the listed year. (Frontends may group these years into decades to present a classic “era” visualization.)
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "era_activity": [
+            {"year": 1971, "listen_count": 3},
+            {"year": 1997, "listen_count": 9},
+            {"year": 2024, "listen_count": 1}
+        ],
+        "from_ts": 315532800,
+        "to_ts": 1735603200,
+        "range": "week",
+        "last_updated": 1735603200,
+        "user_id": "John Doe"
+    }
+}
+Note
+- year is the recording’s release year; multiple listens to different tracks from the same year are aggregated.
+- Clients may bucket by decade (e.g. 1970s, 1990s) if they want true “era” bars.
+- Empty years are omitted (only years with > 0 listens are returned for the selected range).
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/genre-activity
+Get the genre activity for user user_name. The genre activity shows the total number of listens for each genre broken down by hour of the day.
+A sample response from the endpoint may look like:
+{
+    "result": [
+        {
+            "genre": "alternative dance",
+            "hour": 14,
+            "listen_count": 3
+        },
+        {
+            "genre": "alternative punk",
+            "hour": 11,
+            "listen_count": 6
+        },
+        {
+            "genre": "alternative rock",
+            "hour": 11,
+            "listen_count": 8
+        },
+        {
+            "genre": "electronic",
+            "hour": 10,
+            "listen_count": 13
+        },
+        {
+            "genre": "rock",
+            "hour": 11,
+            "listen_count": 16
+        }
+    ]
+}
+Note
+- The example above shows genre activity data with listening patterns across different hours.
+- Each entry represents the number of times a genre was listened to during a specific hour of the day.
+- Hours are in 24-hour format (0-23).
+- The statistics help identify when users prefer to listen to different genres throughout the day.
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/artist-evolution-activity
+Get the artist evolution activity for a specific user. Over the selected time range, this returns raw rows of listen counts per artist per time unit (e.g., weekday, day-of-month, month, or year). The structure mirrors the sitewide endpoint.
+A sample response may look like:
+{
+  "payload": {
+    "artist_evolution_activity": [
+      { "time_unit": "Monday",    "artist_mbid": "mbid_taylor",  "artist_name": "Taylor Swift", "listen_count": 120 },
+      { "time_unit": "Monday",    "artist_mbid": "mbid_drake",   "artist_name": "Drake",        "listen_count": 80  },
+      { "time_unit": "Sunday",    "artist_mbid": "mbid_weeknd",  "artist_name": "The Weeknd",   "listen_count": 400 }
+    ],
+    "range": "week",
+    "from_ts": 1609459200,
+    "to_ts": 1640995200,
+    "last_updated": 1640995200,
+    "user_id": "foobar"
+  }
+}
+Note
+- time_unit depends on the stats range:
+- week, this_week → weekday names (Monday..Sunday)
+- month, this_month → day numbers as strings (“1”..”31”)
+- year, this_year, half_yearly, quarter → month names (January..December)
+- all_time → calendar years as strings (“2019”, “2020”, …)
+- artist_mbid may be null/omitted if unavailable.
+Parameters:
+- range (str) – Optional stats range (see ALLOWED_STATISTICS_RANGE), defaults to all_time.
+Status Codes:
+- 200 OK – Successful query.
+- 204 No Content – Statistics not available.
+- 400 Bad Request – Bad request.
+- 404 Not Found – User not found.
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/daily-activity
+Get the daily activity for user user_name. The daily activity shows the number of listens submitted by the user for each hour of the day over a period of time. We assume that all listens are in UTC.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "from_ts": 1587945600,
+        "last_updated": 1592807084,
+        "daily_activity": {
+            "Monday": [
+                {
+                    "hour": 0
+                    "listen_count": 26,
+                },
+                {
+                    "hour": 1
+                    "listen_count": 30,
+                },
+                {
+                    "hour": 2
+                    "listen_count": 4,
+                },
+                "..."
+            ],
+            "Tuesday": ["..."],
+            "..."
+        },
+        "range": "all_time",
+        "to_ts": 1589155200,
+        "user_id": "ishaanshah"
+    }
+}
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/artist-map
+Get the artist map for user user_name. The artist map shows the number of artists the user has listened to from different countries of the world.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "from_ts": 1587945600,
+        "last_updated": 1592807084,
+        "artist_map": [
+            {
+                "country": "USA",
+                "artist_count": 34
+            },
+            {
+                "country": "GBR",
+                "artist_count": 69
+            },
+            {
+                "country": "IND",
+                "artist_count": 32
+            }
+        ],
+        "range": "all_time",
+        "to_ts": 1589155200,
+        "user_id": "ishaanshah"
+    }
+}
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/artist/(artist_mbid)/listeners
+Get top listeners for artist artist_mbid. This includes the total listen count for the entity and top N listeners with their individual listen count for that artist in a given time range. A sample response from the endpoint may look like:
+{
+  "payload": {
+    "artist_mbid": "00034ede-a1f1-4219-be39-02f36853373e",
+    "artist_name": "O Rappa",
+    "from_ts": 1009843200,
+    "last_updated": 1681839677,
+    "listeners": [
+      {
+        "listen_count": 2469,
+        "user_name": "RosyPsanda"
+      },
+      {
+        "listen_count": 1858,
+        "user_name": "alexyagui"
+      },
+      {
+        "listen_count": 578,
+        "user_name": "rafael_gn"
+      },
+      {
+        "listen_count": 8,
+        "user_name": "italooliveira"
+      },
+      {
+        "listen_count": 7,
+        "user_name": "paulodesouza"
+      },
+      {
+        "listen_count": 1,
+        "user_name": "oldpunisher"
+      }
+    ],
+    "range": "all_time",
+    "to_ts": 1681777035,
+    "total_listen_count": 16393
+  }
+}
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated or the entity does not exist, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – Entity not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/release-group/(release_group_mbid)/listeners
+Get top listeners for release group release_group_mbid. This includes the total listen count for the entity and top N listeners with their individual listen count for that release group in a given time range. A sample response from the endpoint may look like:
+{
+  "payload": {
+    "artist_mbids": [
+      "c234fa42-e6a6-443e-937e-2f4b073538a3"
+    ],
+    "artist_name": "Chris Brown",
+    "caa_id": 23564822587,
+    "caa_release_mbid": "25f18616-5a9c-470e-964d-4eb8a511435b",
+    "from_ts": 1009843200,
+    "last_updated": 1681843150,
+    "listeners": [
+      {
+        "listen_count": 2365,
+        "user_name": "purpleyor"
+      },
+      {
+        "listen_count": 570,
+        "user_name": "dndty"
+      },
+      {
+        "listen_count": 216,
+        "user_name": "iammsyre"
+      },
+      {
+        "listen_count": 141,
+        "user_name": "dpmittal"
+      },
+      {
+        "listen_count": 33,
+        "user_name": "tazlad"
+      },
+      {
+        "listen_count": 30,
+        "user_name": "ratkutti"
+      },
+      {
+        "listen_count": 22,
+        "user_name": "Raymorjamiek"
+      },
+      {
+        "listen_count": 21,
+        "user_name": "MJJMC"
+      },
+      {
+        "listen_count": 12,
+        "user_name": "fookever"
+      },
+      {
+        "listen_count": 8,
+        "user_name": "Jamjamk12071983"
+      },
+      {
+        "listen_count": 1,
+        "user_name": "hassanymoses"
+      },
+      {
+        "listen_count": 1,
+        "user_name": "iJays"
+      }
+    ],
+    "release_group_mbid": "087b3a7d-d532-44d9-b37a-84427677ddcd",
+    "release_group_name": "Indigo",
+    "range": "all_time",
+    "to_ts": 1681777035,
+    "total_listen_count": 10291
+  }
+}
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated or the entity does not exist, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – Entity not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/artists
+Get sitewide top artists.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "artists": [
+            {
+                "artist_mbid": null,
+                "artist_name": "Kanye West",
+                "listen_count": 1305
+            },
+            {
+                "artist_mbid": "0b30341b-b59d-4979-8130-b66c0e475321",
+                "artist_name": "Lil Nas X",
+                "listen_count": 1267
+            }
+        ],
+        "offset": 0,
+        "count": 2,
+        "total_artist_count": 2,
+        "range": "year",
+        "last_updated": 1588494361,
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+- artist_mbid is optional field and may not be present in all the entries
+- We only calculate the top 1000 artists for each time period.
+Parameters:
+- count (int) – Optional, number of artists to return for each time range, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of artists to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 artists will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/releases
+Get sitewide top releases.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "releases": [
+            {
+                "artist_mbids": [],
+                "artist_name": "Coldplay",
+                "listen_count": 26,
+                "release_mbid": "",
+                "release_name": "Live in Buenos Aires"
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "Ellie Goulding",
+                "listen_count": 25,
+                "release_mbid": "",
+                "release_name": "Delirium (Deluxe)"
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "The Fray",
+                "listen_count": 25,
+                "release_mbid": "",
+                "release_name": "How to Save a Life"
+            },
+        ],
+        "offset": 0,
+        "count": 2,
+        "total_release_count": 2,
+        "range": "year",
+        "last_updated": 1588494361,
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+- artist_mbids and release_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of artists to return for each time range, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of artists to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 artists will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/release-groups
+Get sitewide top release groups.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "release_groups": [
+            {
+                "artist_mbids": [
+                    "62162215-b023-4f0e-84bd-1e9412d5b32c",
+                    "faf4cefb-036c-4c88-b93a-5b03dd0a0e6b",
+                    "e07d9474-00ea-4460-ac27-88b46b3d976e"
+                ],
+                "artist_name": "All Time Low ft. Demi Lovato & blackbear",
+                "caa_id": 29179588350,
+                "caa_release_mbid": "ee65192d-31f3-437a-b170-9158d2172dbc",
+                "listen_count": 456,
+                "release_group_mbid": "326b4a29-dff5-4fab-87dc-efc1494001c6",
+                "release_group_name": "Monsters"
+            },
+            {
+                "artist_mbids": [
+                    "c8b03190-306c-4120-bb0b-6f2ebfc06ea9"
+                ],
+                "artist_name": "The Weeknd",
+                "caa_id": 25720993837,
+                "caa_release_mbid": "19e4f6cc-ca0c-4897-8dfc-a36914b7f998",
+                "listen_count": 381,
+                "release_group_mbid": "78570bea-2a26-467c-a3db-c52723ceb394",
+                "release_group_name": "After Hours"
+            }
+        ],
+        "offset": 0,
+        "count": 2,
+        "total_release_group_count": 2,
+        "range": "year",
+        "last_updated": 1588494361,
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+- artist_mbids and release_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of artists to return for each time range, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of artists to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 artists will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/recordings
+Get sitewide top recordings.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "recordings": [
+            {
+                "artist_mbids": [],
+                "artist_name": "Ellie Goulding",
+                "listen_count": 25,
+                "recording_mbid": "0fe11cd3-0be4-467b-84fa-0bd524d45d74",
+                "release_mbid": "",
+                "release_name": "Delirium (Deluxe)",
+                "track_name": "Love Me Like You Do - From \"Fifty Shades of Grey\""
+            },
+            {
+                "artist_mbids": [],
+                "artist_name": "The Fray",
+                "listen_count": 23,
+                "recording_mbid": "0008ab49-a6ad-40b5-aa90-9d2779265c22",
+                "release_mbid": "",
+                "release_name": "How to Save a Life",
+                "track_name": "How to Save a Life"
+            }
+        ],
+        "offset": 0,
+        "count": 2,
+        "total_recording_count": 2,
+        "range": "year",
+        "last_updated": 1588494361,
+        "from_ts": 1009823400,
+        "to_ts": 1590029157
+    }
+}
+Note
+- We only calculate the top 1000 all_time recordings
+- artist_mbids, release_name, release_mbid and recording_mbid are optional fields and may not be present in all the responses
+Parameters:
+- count (int) – Optional, number of artists to return for each time range, Default: DEFAULT_ITEMS_PER_GET Max: MAX_ITEMS_PER_GET
+- offset (int) – Optional, number of artists to skip from the beginning, for pagination. Ex. An offset of 5 means the top 5 artists will be skipped, defaults to 0
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/listening-activity
+Get the listening activity for entire site. The listening activity shows the number of listens the user has submitted over a period of time.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "from_ts": 1587945600,
+        "last_updated": 1592807084,
+        "listening_activity": [
+            {
+                "from_ts": 1587945600,
+                "listen_count": 26,
+                "time_range": "Monday 27 April 2020",
+                "to_ts": 1588031999
+            },
+            {
+                "from_ts": 1588032000,
+                "listen_count": 57,
+                "time_range": "Tuesday 28 April 2020",
+                "to_ts": 1588118399
+            },
+            {
+                "from_ts": 1588118400,
+                "listen_count": 33,
+                "time_range": "Wednesday 29 April 2020",
+                "to_ts": 1588204799
+            }
+        ],
+        "to_ts": 1589155200,
+        "range": "week"
+    }
+}
+Note
+- The example above shows the data for three days only, however we calculate the statistics for the current time range and the previous time range. For example for weekly statistics the data is calculated for the current as well as the past week.
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/artist-activity
+Get the sitewide artist activity. The artist activity shows the total number of listens across all users for each artist along with their albums and corresponding listen counts.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "artist_activity": [
+            {
+                "name": "Radiohead",
+                "artist_mbid": null,
+                "listen_count": 12000,
+                "albums": [
+                    {
+                        "name": "OK Computer",
+                        "listen_count": 4500,
+                        "release_group_mbid": "1c2b57e1-9b3d-4f5a-8c7d-9e0f1a2b3c4d"
+                    },
+                    {
+                        "name": "In Rainbows",
+                        "listen_count": 7500,
+                        "release_group_mbid": null
+                    }
+                ]
+            },
+            {
+                "name": "The Beatles",
+                "artist_mbid": null,
+                "listen_count": 9500,
+                "albums": [
+                    {
+                        "name": "Abbey Road",
+                        "listen_count": 6000,
+                        "release_group_mbid": "2d3c68f2-0a4e-5g6b-9d8e-0f1a2b3c4d5e"
+                    },
+                    {
+                        "name": "Revolver",
+                        "listen_count": 3500,
+                        "release_group_mbid": null
+                    }
+                ]
+            }
+        ],
+        "range": "all_time",
+        "from_ts": 1587945600,
+        "to_ts": 1640995200,
+        "last_updated": 1640995200
+    }
+}
+Note
+- The example above shows sitewide artist activity data with two artists and their respective albums.
+- The statistics are aggregated based on the number of listens recorded across all users for each artist and their albums.
+- Each artist entry includes:
+- name: The artist name
+- artist_mbid: The MusicBrainz artist ID (always null for sitewide stats)
+- listen_count: Total number of listens for this artist across all users
+- albums: List of albums/release groups for this artist
+- Each album entry includes:
+- name: The release group name
+- listen_count: Number of listens for this release group across all users
+- release_group_mbid: The MusicBrainz release group ID (may be null if unavailable)
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/era-activity
+Get sitewide release-year activity. Each entry represents the number of listens across all users to recordings whose original release year equals the listed year. (Frontends may group these years into decades to present a classic “era” visualization.)
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "era_activity": [
+            {"year": 1973, "listen_count": 1043},
+            {"year": 1997, "listen_count": 3877},
+            {"year": 2011, "listen_count": 2610}
+        ],
+        "from_ts": 315532800,
+        "to_ts": 1735603200,
+        "range": "year",
+        "last_updated": 1735603200
+    }
+}
+Note
+- year is the recording’s release year; counts are aggregated across the entire ListenBrainz userbase.
+- Clients may bucket by decade (e.g. 1970s, 1990s) if they want true “era” bars.
+- Empty years are omitted.
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/artist-evolution-activity
+Get the sitewide artist evolution activity. Over the selected time range, this returns raw rows of listen counts per artist per time unit (e.g., weekday, day-of-month, month, or year). The structure mirrors the user endpoint.
+A sample response may look like:
+{
+  "payload": {
+    "artist_evolution_activity": [
+      { "time_unit": "Monday",    "artist_mbid": "mbid_taylor",  "artist_name": "Taylor Swift", "listen_count": 120 },
+      { "time_unit": "Tuesday",   "artist_mbid": "mbid_drake",   "artist_name": "Drake",        "listen_count": 200 },
+      { "time_unit": "Sunday",    "artist_mbid": "mbid_weeknd",  "artist_name": "The Weeknd",   "listen_count": 400 }
+    ],
+    "range": "week",
+    "from_ts": 1609459200,
+    "to_ts": 1640995200,
+    "last_updated": 1640995200
+  }
+}
+Note
+- time_unit depends on the stats range:
+- week, this_week → weekday names (Monday..Sunday)
+- month, this_month → day numbers as strings (“1”..”31”)
+- year, this_year, half_yearly, quarter → month names (January..December)
+- all_time → calendar years as strings (“2019”, “2020”, …)
+- artist_mbid may be null/omitted if unavailable.
+- Shape matches /user/<user_name>/artist-evolution-activity for easy client reuse.
+Parameters:
+- range (str) – Optional stats range (see ALLOWED_STATISTICS_RANGE), defaults to all_time.
+Status Codes:
+- 200 OK – Successful query.
+- 204 No Content – Statistics not available.
+- 400 Bad Request – Bad request.
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/sitewide/artist-map
+Get the sitewide artist map. The artist map shows the number of artists listened to by users from different countries of the world.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "from_ts": 1587945600,
+        "last_updated": 1592807084,
+        "artist_map": [
+            {
+                "country": "USA",
+                "artist_count": 34
+            },
+            {
+                "country": "GBR",
+                "artist_count": 69
+            },
+            {
+                "country": "IND",
+                "artist_count": 32
+            }
+        ],
+        "range": "all_time",
+        "to_ts": 1589155200,
+    }
+}
+Parameters:
+- range (str) – Optional, time interval for which statistics should be returned, possible values are ALLOWED_STATISTICS_RANGE, defaults to all_time
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Statistics for the user haven’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/year-in-music/(int: year)
+
+### GET /1/stats/user/(mb_username: user_name)/year-in-music
+Get the Year in Music data for specific user. It returns a JSON object containing all calculated Year in Music statistics for the specified user and year.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "user_name": "example_user",
+        "year": 2025,
+        "data": {
+            "artist_evolution_activity": [
+                {
+                    "artist_mbid": "artist_mbid_example",
+                    "artist_name": "Example Artist",
+                    "listen_count": 7,
+                    "time_unit": "September"
+                }
+            ],
+            "artist_map": [
+                {
+                    "country": "USA",
+                    "artist_count": 3,
+                    "listen_count": 920,
+                    "artists": [
+                        {
+                            "artist_mbid": "artist_mbid_1",
+                            "artist_name": "Artist One",
+                            "listen_count": 191
+                        },
+                        ...,
+                    ]
+                }
+            ],
+            "day_of_week": "Monday",
+            "genre_activity": [
+                {
+                    "genre": "alternative pop",
+                    "hour": 21,
+                    "listen_count": 13
+                },
+                ...,
+            ],
+            "listens_per_day": [
+                {
+                    "from_ts": 1735689600,
+                    "to_ts": 1735775999,
+                    "time_range": "01 January 2025",
+                    "listen_count": 0
+                },
+                ...,
+            ],
+            "most_listened_year": {
+                "1957": 2,
+                "1928": 1,
+                ...,
+            },
+            "new_releases_of_top_artists": [
+                {
+                    "title": "Example Release Title",
+                    "release_group_mbid": "release_group_mbid_example",
+                    "caa_id": 123456789,
+                    "caa_release_mbid": "caa_release_mbid_example",
+                    "artist_credit_mbids": [
+                        "artist_mbid_example"
+                    ],
+                    "artist_credit_name": "Example Artist",
+                    "artists": [
+                        {
+                            "artist_credit_name": "Example Artist",
+                            "artist_mbid": "artist_mbid_example",
+                            "join_phrase": ""
+                        }
+                    ]
+                },
+                ...,
+            ],
+            "playlist-top-discoveries-for-year": {
+                "title": "Top Discoveries of 2025 for example_user",
+                "creator": "listenbrainz",
+                "date": "2025-01-01T00:00:00+00:00",
+                "identifier": "https://listenbrainz.org/playlist/example",
+                "annotation": "<p>Example annotation</p>",
+                "extension": {
+                    "https://musicbrainz.org/doc/jspf#playlist": {
+                        "created_for": "example_user",
+                        "creator": "listenbrainz",
+                        "public": true
+                    }
+                },
+                "track": [
+                    {
+                        "title": "Example Track",
+                        "creator": "Example Artist",
+                        "album": "Example Album",
+                        "duration": 180000,
+                        "identifier": [
+                            "https://musicbrainz.org/recording/recording_mbid_example"
+                        ],
+                        "extension": {
+                            "https://musicbrainz.org/doc/jspf#track": {
+                                "added_at": "2025-01-01T00:00:00+00:00",
+                                "added_by": "listenbrainz",
+                                "artist_identifiers": [
+                                    "https://musicbrainz.org/artist/artist_mbid_example"
+                                ],
+                                "additional_metadata": {
+                                    "caa_id": 123456789,
+                                    "caa_release_mbid": "caa_release_mbid_example",
+                                    "artists": [
+                                        {
+                                            "artist_credit_name": "Example Artist",
+                                            "artist_mbid": "artist_mbid_example",
+                                            "join_phrase": ""
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    ...,
+                ]
+            },
+            "playlist-top-missed-recordings-for-year": {
+                "..." : "Same structure as playlist-top-discoveries-for-year"
+            },
+            "similar_users": {
+                "user_a": 0.05,
+                "user_b": 0.06,
+                ...,
+            },
+            "top_artists": [
+                {
+                    "artist_mbid": "artist_mbid_example",
+                    "artist_name": "Example Artist",
+                    "listen_count": 507
+                },
+                ...,
+            ],
+            "top_genres": [
+                {
+                    "genre": "rock",
+                    "genre_count": 13483,
+                    "genre_count_percent": 6.02
+                },
+                ...,
+            ],
+            "top_recordings": [
+                {
+                    "track_name": "Example Track",
+                    "artist_name": "Example Artist",
+                    "listen_count": 55,
+                    "recording_mbid": "recording_mbid_example",
+                    "release_name": "Example Release",
+                    "release_mbid": "release_mbid_example",
+                    "caa_id": null,
+                    "caa_release_mbid": null,
+                    "artist_mbids": [],
+                    "artists": [  
+                      {  
+                        "artist_credit_name": "Example Artist",  
+                        "artist_mbid": "artist_mbid_example",  
+                        "join_phrase": " & "  
+                      },  
+                      ...,
+                    ]  
+                },
+                ...,
+            ],
+            "top_release_groups": [
+                {
+                    "release_group_name": "Example Release Group",
+                    "release_group_mbid": "release_group_mbid_example",
+                    "artist_name": "Example Artist",
+                    "artist_mbids": [
+                        "artist_mbid_example"
+                    ],
+                    "listen_count": 210,
+                    "caa_id": 123456789,
+                    "caa_release_mbid": "caa_release_mbid_example",
+                    "artists": [
+                        {
+                            "artist_credit_name": "Example Artist",
+                            "artist_mbid": "artist_mbid_example",
+                            "join_phrase": ""
+                        }
+                    ]
+                },
+                ...,
+            ],
+            "total_artists_count": 2059,
+            "total_listen_count": 20989,
+            "total_listening_time": 4154743.722,
+            "total_new_artists_discovered": 1227,
+            "total_recordings_count": 12716,
+            "total_release_groups_count": 1861
+        }
+    }
+}
+Warning
+The Year in Music payload can be significantly larger than other stats endpoints, as it may include full playlist data.
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Year in Music data for the user hasn’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found or Year in Music data not available for the given year
+Response Headers:
+- Content-Type – application/json
+
+### GET /1/stats/user/(mb_username: user_name)/year-in-music/legacy/(int: year)
+Get legacy Year in Music data for a specific user and year. This endpoint returns historical Year in Music payloads that were generated by earlier data pipelines. The response structure is not stable across years and should be treated as archival data.
+Payload structure varies by year.
+2021
+- Payload structure differs significantly from later years.
+- Playlist entries are wrapped in a JSPF structure under the jspf key.
+- Each playlist includes an associated mbid.
+- Playlist cover art URLs are provided separately via *-coverart mappings.
+- Several fields present in payloads of later years are not included.
+A sample response from the endpoint may look like:
+{
+    "payload": {
+        "user_name": "example_user",
+        "year": 2021,
+        "data": {
+            "day_of_week": "Friday",
+            "listens_per_day": [
+                {
+                "from_ts": 1609459200,
+                "to_ts": 1609545599,
+                "time_range": "01 January 2021",
+                "listen_count": 0
+                },
+                ...,
+            ],
+            "most_listened_year": {
+                "1995": 12,
+                "2005": 30,
+                "...": "..."
+            },
+            "most_prominent_color": "(165, 166, 156)",
+            "new_releases_of_top_artists": [
+                {
+                    "title": "Example Release Title",
+                    "type": "Album",
+                    "first_release_date": "2021-03-05",
+                    "release_mbid": "release_mbid_example",
+                    "artist_credit_names": [
+                        "Example Artist A",
+                        "Example Artist B"
+                    ],
+                    "artist_credit_mbids": [
+                        "artist_mbid_a",
+                        "artist_mbid_b"
+                    ]
+                },
+                ...,
+            ],
+            "playlist-top-discoveries-for-year": {
+                "jspf": {
+                    "playlist": {
+                        "title": "Top Discoveries of 2021 for example_user",
+                        "creator": "listenbrainz",
+                        "annotation": "<p>Example annotation</p>",
+                        "extension": {
+                            "https://musicbrainz.org/doc/jspf#playlist": {
+                                "public": true,
+                                "algorithm_metadata": {
+                                    "source_patch": "top-discoveries-for-year"
+                                }
+                            }
+                        },
+                        "track": [
+                            {
+                                "title": "Example Track",
+                                "creator": "Example Artist",
+                                "album": "Example Album",
+                                "identifier": "https://musicbrainz.org/recording/example_recording_mbid",
+                                "extension": {
+                                    "https://musicbrainz.org/recording/": {
+                                        "artist_mbids": [
+                                        "example_artist_mbid"
+                                        ]
+                                    }
+                                }
+                            },
+                            ...,
+                        ]
+                    }
+                },
+                "mbid": "playlist_mbid_example"
+            },
+            "playlist-top-discoveries-for-year-coverart": {
+                "example_recording_mbid":
+                "https://archive.org/download/example_coverart.jpg",
+                "...": "..."
+            },
+            "playlist-top-missed-recordings-for-year": {
+                "..." : "Same structure as playlist-top-discoveries-for-year"
+            }
+            "playlist-top-missed-recordings-for-year-coverart": {
+                "..." : "Same structure as playlist-top-discoveries-for-year-coverart"
+            }
+            "playlist-top-new-recordings-for-year": {
+                "..." : "Same structure as playlist-top-discoveries-for-year"
+            },
+            "playlist-top-new-recordings-for-year-coverart": {
+                "..." : "Same structure as playlist-top-discoveries-for-year-coverart"
+            },
+            "playlist-top-recordings-for-year": {
+                "..." : "Same structure as playlist-top-discoveries-for-year"
+            },
+            "playlist-top-recordings-for-year-coverart": {
+                "..." : "Same structure as playlist-top-discoveries-for-year-coverart"
+            },
+            "similar_users": {
+                "example_user_a": 0.12,
+                "example_user_b": 0.27,
+                "...": "..."
+            },
+            "top_artists": [
+                {
+                    "artist_name": "Example Artist",
+                    "artist_mbids": [
+                        "example_artist_mbid"
+                    ],
+                    "listen_count": 507
+                },
+                ...,
+            ],
+            "top_recordings": [
+                {
+                    "track_name": "Example Track",
+                    "artist_name": "Example Artist",
+                    "recording_mbid": "example_recording_mbid",
+                    "release_name": "Example Release",
+                    "release_mbid": "example_release_mbid",
+                    "artist_mbids": [
+                        "example_artist_mbid"
+                    ],
+                    "listen_count": 55
+                },
+                ...,
+            ],
+            "top_releases": [
+                {
+                    "release_name": "Example Release",
+                    "artist_name": "Example Artist",
+                    "release_mbid": "example_release_mbid",
+                    "artist_mbids": [
+                        "example_artist_mbid"
+                    ],
+                    "listen_count": 210
+                },
+                ...,
+            ],
+            "top_releases_coverart": {
+                "example_release_mbid":
+                "https://archive.org/download/example_release_coverart.jpg",
+                "...": "..."
+            },
+            "total_listen_count": 12731
+        }
+    }
+}
+2022
+- Core payload structure matches the non-legacy Year in Music endpoint.
+- Playlist objects are no longer wrapped in JSPF.
+- Some playlists have been removed, leaving playlist-top-discoveries-for-year and playlist-top-missed-recordings-for-year.
+- Playlist cover art is provided via additional *-coverart mappings.
+2023 and later
+- Payload structure matches the non-legacy endpoint.
+- Playlist cover art mappings (playlist-*-coverart) are no longer included. Instead, cover art information is provided per track using the caa_id and caa_release_mbid fields in track.extension["https://musicbrainz.org/doc/jspf#track"].additional_metadata.
+A sample response from the endpoint may look like (top-level fields only):
+{
+    "payload": {
+        "user_name": "example_user",
+        "year": 2023,
+        "data": {
+            "artist_map": [ ... ],
+            "day_of_week": "Tuesday",
+            "listens_per_day": [ ... ],
+            "most_listened_year": { ... },
+            "new_releases_of_top_artists": [ ... ],
+            "playlist-top-discoveries-for-year": { ... },
+            "playlist-top-missed-recordings-for-year": { ... },
+            "similar_users": { ... },
+            "top_artists": [ ... ],
+            "top_genres": [ ... ],
+            "top_recordings": [ ... ],
+            "top_release_groups": [ ... ],
+            "total_artists_count": 1555,
+            "total_listen_count": 7476,
+            "total_listening_time": 2011192.0139999997,
+            "total_new_artists_discovered": 686,
+            "total_recordings_count": 4674,
+            "total_release_groups_count": 1896
+        }
+    }
+}
+Warning
+The legacy Year in Music payload can be significantly larger than other stats endpoints, as it may include full playlist data and cover art mappings.
+Status Codes:
+- 200 OK – Successful query, you have data!
+- 204 No Content – Year in Music data for the user hasn’t been calculated, empty response will be returned
+- 400 Bad Request – Bad request, check response['error'] for more details
+- 404 Not Found – User not found or Year in Music data not available for the given year
+Response Headers:
+- Content-Type – application/json
+
+## Constants
+Constants that are relevant to using the API:
+data.model.common_stat.ALLOWED_STATISTICS_RANGE = ['this_week', 'this_month', 'this_year', 'week', 'month', 'quarter', 'year', 'half_yearly', 'all_time']
+list of allowed value for range param accepted by various statistics endpoints

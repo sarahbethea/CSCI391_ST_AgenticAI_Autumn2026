@@ -77,6 +77,7 @@ def chat(messages: list[dict], mode: str, tier: str, tools: list[dict] | None = 
         "tier": tier,
         "tokens_in": usage.get("prompt_tokens"),
         "tokens_out": usage.get("completion_tokens"),
+        "cost": usage.get("cost"),              # USD, when OpenRouter reports it (None otherwise)
         "latency_ms": round((time.monotonic() - start) * 1000),
     }
     return body["choices"][0]["message"], meta

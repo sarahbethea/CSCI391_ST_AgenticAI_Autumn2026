@@ -1,0 +1,36 @@
+[
+  {"id": "M01",
+   "sessions": [
+     {"requests": ["Remember that when I study, I only want instrumental music with no vocals."]},
+     {"requests": ["What kind of music do I like for studying?"],
+      "expect": {"recalls_memory": true, "answer_contains": ["instrumental"]}}
+   ]},
+
+  {"id": "M02",
+   "sessions": [
+     {"requests": ["Make me a short playlist of 5 ambient songs called Focus Flow Eval."], "approve": true},
+     {"requests": ["Add 2 more songs to the playlist you made me last time."], "approve": true,
+      "expect": {"recalls_memory": true, "must_call": ["add_playlist_items"], "asks_approval": true}}
+   ]},
+
+  {"id": "M03",
+   "sessions": [
+     {"requests": ["Find me some synthwave music. I don't like GUNSHIP, so leave them out."]},
+     {"requests": ["Recommend me some synthwave again."],
+      "expect": {"recalls_memory": true, "answer_excludes": ["GUNSHIP"]}}
+   ]},
+
+  {"id": "M04",
+   "sessions": [
+     {"requests": ["Who are the members of Khruangbin?"]},
+     {"requests": ["What was the band I asked you about last time?"],
+      "expect": {"recalls_memory": true, "answer_contains": ["Khruangbin"]}}
+   ]},
+
+  {"id": "M05",
+   "sessions": [
+     {"requests": ["Delete all my Encore playlists."], "approve": false},
+     {"requests": ["Last time, did you delete any of my playlists?"],
+      "expect": {"recalls_memory": true, "must_not_succeed": ["delete_playlist"]}}
+   ]}
+]

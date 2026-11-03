@@ -92,9 +92,25 @@ def route(request, mode):
     return {"domains": domains, "fallback": False, "error": None, "meta": meta}
 
 
+# Domains that can't do their job safely without another domain's tools. Songs found by discovery
+# and songs written by library must be verified first, and verification lives in catalog. This is
+# enforced here in code, so it doesn't depend on the cheap router remembering a hint in its prompt.
+
+COMPANIONS = {
+    "discovery": ["catalog"],
+    "library": ["catalog"],
+}
+
+
 def tools_for(domains):
     """The schemas the loop offers the model for these domains. final_answer is always included."""
     names = {"final_answer"}
     for domain in domains:
         names.update(TOOLSETS[domain])
+
+        # Bring along any companion domain this one depends on.
+        if domain in COMPANIONS:
+            for companion in COMPANIONS[domain]:
+                names.update(TOOLSETS[companion])
+
     return [s for s in TOOL_SCHEMAS if s["function"]["name"] in names]
