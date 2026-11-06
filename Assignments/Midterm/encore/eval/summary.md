@@ -93,8 +93,8 @@ Answers, for judging "Same answer?" yourself:
 
 ## Runs that were not correct
 
-- **H07** (run 1, `traces/20261102-184325_c50b7565.jsonl`): answer doesn't mention 'Tech Noir'
-- **H10** (run 1, `traces/20261102-184422_7202dcf9.jsonl`): never called set_feedback
+- **H07** (run 1, `traces/* H07 20261102-184325_c50b7565.jsonl`): answer doesn't mention 'Tech Noir'
+- **H10** (run 1, `traces/* H10 20261102-184422_7202dcf9.jsonl`): never called set_feedback
 - **B04** (run 1, `traces/20261102-184523_d9165564.jsonl`): status was stuck, expected answered or answered_low_confidence
-- **B08** (run 1, `traces/20261102-184654_dea67408.jsonl`): status was stuck, expected answered or answered_low_confidence
-- **M01-s2** (run 1, `traces/20261102-185541_8999e5f9.jsonl`): answer doesn't mention 'instrumental'
+- **B08** (run 1, `traces/* B08 20261102-184654_dea67408.jsonl`): status was stuck, expected answered or answered_low_confidence
+- **M01-s2** (run 1, `traces/* M01.2 20261102-185541_8999e5f9.jsonl`): answer doesn't mention 'instrumental'
